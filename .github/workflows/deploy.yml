@@ -2,7 +2,7 @@ name: Build and Deploy Map Daily
 
 on:
   schedule:
-    - cron: '0 6 * * *' # 06:00 UTC daily
+    - cron: '0 10 * * *' # 06:00 America/New_York (NYC) daily (10:00 UTC during standard time)
   workflow_dispatch: {}
 
 permissions:

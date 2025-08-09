@@ -86,17 +86,44 @@ def build_map_html(details_json_path: str, output_html_path: str) -> None:
     center_lng = -98.5795
     m = folium.Map(location=[center_lat, center_lng], zoom_start=5)
 
+    # Create a FeatureGroup per flavor so we can toggle them via LayerControl
+    flavor_to_group: dict[str, folium.FeatureGroup] = {}
+    # Assign a distinct color per flavor using a rotating palette
+    color_palette = [
+        "red", "blue", "green", "purple", "orange",
+        "darkred", "lightred", "beige", "darkblue", "darkgreen",
+        "cadetblue", "darkpurple", "white", "pink", "lightblue",
+        "lightgreen", "gray", "black", "lightgray",
+    ]
+    flavor_to_color: dict[str, str] = {}
+
     for loc in locations:
         lat = loc.get("lat")
         lng = loc.get("lng")
         address = loc.get("address", "No address")
-        flavors = loc.get("flavors", "No flavor")
-        popup_text = f"{address}<br>Flavor: {flavors}"
+        flavor = loc.get("flavors") or "Unknown"
+        popup_text = f"{address}<br>Flavor: {flavor}"
+
+        # Get or create a feature group for this flavor
+        if flavor not in flavor_to_group:
+            group = folium.FeatureGroup(name=f"{flavor}", show=False)
+            group.add_to(m)
+            flavor_to_group[flavor] = group
+            # Assign a color for this new flavor
+            assigned_color = color_palette[len(flavor_to_color) % len(color_palette)]
+            flavor_to_color[flavor] = assigned_color
+        else:
+            group = flavor_to_group[flavor]
+            assigned_color = flavor_to_color[flavor]
+
         folium.Marker(
             location=[lat, lng],
             popup=popup_text,
-            icon=folium.Icon(color="blue", icon="info-sign"),
-        ).add_to(m)
+            icon=folium.Icon(color=assigned_color, icon="info-sign"),
+        ).add_to(group)
+
+    # Add a layer control to toggle flavors on/off
+    folium.LayerControl(collapsed=False).add_to(m)
 
     m.save(output_html_path)
 
@@ -139,77 +166,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-import requests
-import json
-import os
-import threading
-import concurrent.futures
-
-
-def save_culvers_details_to_file(oloID, details):
-    with open(f"culvers_details_{oloID}.json", "w") as file:
-        json.dump(details, file, indent=4)
-
-
-_thread_local = threading.local()
-timeout = []
-results = []
-
-def _get_session() -> requests.Session:
-    if not hasattr(_thread_local, "session"):
-        session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        _thread_local.session = session
-    return _thread_local.session
-
-
-def get_culvers_details(oloID):
-    print(oloID)
-    url = f"https://www.culvers.com/api/restaurants/getDetails?oloID={oloID}"
-    try:
-        session = _get_session()
-        response = session.get(url, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        if data.get("data", {}).get("restaurant", {}).get("getRestaurantDetails") is None:
-            return None
-        details = data["data"]["restaurant"]["getRestaurantDetails"]
-        res = {
-            "flavors": details["flavors"][0]["name"],
-            "oloID": oloID,
-            "address": f"{details['streetAddress']} {details['city']} {details['state']}",
-            "lat" : details.get("latitude"),
-            "lng" : details.get("longitude"),
-        }
-        return res
-    except requests.RequestException as e:
-        print(f"Error fetching details for oloID {oloID}: {e}")
-        timeout.append(oloID)
-        return None
-
-def _run_concurrently(ids : list[int], max_workers: int) -> None:
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(get_culvers_details, olo_id) for olo_id in ids]
-        for future in concurrent.futures.as_completed(futures):
-            res = future.result()
-            if res is not None:
-                results.append(res)
-            # Ensure exceptions are surfaced
-            _ = future.result()
-
-with open("culvers_ids.txt", "r") as f:
-    ids = [line.strip() for line in f if line.strip()]
-if __name__ == "__main__":
-    workers = MAX_WORKERS
-    _run_concurrently(ids, workers)
-    print(timeout)
-    
-
-# Save all results to a single file
-with open("culvers_details.json", "w") as out_f:
-    json.dump(results, out_f, indent=2)
-
-
