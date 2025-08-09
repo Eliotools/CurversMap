@@ -1,0 +1,6 @@
+flask==3.0.3
+flask-cors==4.0.1
+requests==2.32.3
+folium==0.16.0
+urllib3==2.2.2
+
