@@ -125,6 +125,37 @@ def build_map_html(details_json_path: str, output_html_path: str) -> None:
     # Add a layer control to toggle flavors on/off
     folium.LayerControl(collapsed=False).add_to(m)
 
+    # Add a bottom-right control showing the last update date
+    last_updated = _today_string()
+    last_update_control = """
+<style>
+.last-updated-control {
+  background: rgba(255,255,255,0.85);
+  padding: 6px 8px;
+  margin: 0 6px 6px 0;
+  border-radius: 4px;
+  font: 12px/1.2 Arial, Helvetica, sans-serif;
+  color: #333;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+</style>
+<script>
+(function(){
+  var map = MAP_NAME;
+  var lastUpdated = "YYYY-MM-DD";
+  var ctrl = L.control({position: 'bottomright'});
+  ctrl.onAdd = function() {
+    var div = L.DomUtil.create('div', 'last-updated-control');
+    div.innerHTML = 'Last updated: ' + lastUpdated;
+    return div;
+  };
+  ctrl.addTo(map);
+})();
+</script>
+"""
+    last_update_control = last_update_control.replace("MAP_NAME", m.get_name()).replace("YYYY-MM-DD", last_updated)
+    m.get_root().html.add_child(folium.Element(last_update_control))
+
     m.save(output_html_path)
 
 
