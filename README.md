@@ -1,5 +1,8 @@
 ## CurversMap
 
+[**Open the interactive map**](https://eliotools.github.io/CurversMap/main.html)
+
+
 Builds and deploys an interactive Folium map of Culver's locations and flavors. The map is generated from a list of Olo IDs, rendered as `html/main.html`, and published to GitHub Pages daily.
 
 ### Features
